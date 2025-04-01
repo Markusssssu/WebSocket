@@ -7,35 +7,51 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 const PORT = 3000;
-let i = 0;
 
 app.use(express.static('public'));
 
+const users = new Map();
+
 io.on('connection', (socket) => {
-  i++;
-  console.log(`Пользователь ${i} подключен!`);
+  const userId = `Пользователь ${users.size + 1}`;
+  users.set(socket.id, userId);
+  console.log(`Пользователь: ${users.size} подключился`)
+  
+  io.emit('systemMessage', {
+    text: `${userId} подключился`,
+    type: 'connection'
+  });
 
   socket.on('chatMessage', (msg) => {
+    const user = users.get(socket.id);
     io.emit('message', {
-        text: msg,
-        sender: 'client'
-    }); 
+      text: msg,
+      sender: user,
+      type: 'chat'
+    });
+  });
+
+  socket.on('disconnect', () => {
+    const user = users.get(socket.id);
+    users.delete(socket.id);
+    io.emit('systemMessage', {
+      text: `${user} вышел из чата`,
+      type: 'disconnect'
+    });
   });
 });
 
-
-const r1 = readline.createInterface({
+const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout
 });
 
-r1.on('line', (input) => {
-  io.emit('message', {
-    text: `${input}`,
-    sender: 'server'
+rl.on('line', (input) => {
+  io.emit('systemMessage', {
+    text: `Сервер: ${input}`,
+    type: 'server'
   });
 });
-
 server.listen(PORT, () => {
   console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
